@@ -1,0 +1,33 @@
+name: Web Portal CI (React/Vite)
+
+on:
+  push:
+    branches: [ "main"]
+  pull_request:
+    branches: [ "main"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Versão LTS recomendada
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Executar Linter
+        run: npm run lint --if-present
+
+      - name: Executar Testes
+        run: npm test --if-present
+
+      - name: Validar Build de Produção
+        run: npm run build --if-present
