@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  supermarket-front-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: supermarket_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - default
+      - supermarket_network
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+networks:
+  supermarket_network:
+    name: supermarket-backend_default
+    external: true
