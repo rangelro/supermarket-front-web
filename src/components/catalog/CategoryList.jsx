@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Tags,
   Plus,
@@ -22,18 +22,13 @@ export default function CategoryList() {
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState(null);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
   const fetchCategories = async () => {
     setLoading(true);
     try {
       const data = await catalogService.getCategories();
       const catList = data.results ? data.results : (Array.isArray(data) ? data : []);
       setCategories(catList);
-    } catch (err) {
-      console.error('Erro ao buscar categorias:', err);
+    } catch (_err) {
       setCategories([
         { id: 1, name: 'Grãos e Cereais' },
         { id: 2, name: 'Laticínios e Frios' },
@@ -46,6 +41,10 @@ export default function CategoryList() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const handleOpenModal = (category = null) => {
     setModalError(null);
@@ -78,8 +77,7 @@ export default function CategoryList() {
       }
       setShowModal(false);
       fetchCategories();
-    } catch (err) {
-      console.error('Erro ao salvar categoria:', err);
+    } catch (_err) {
       setCategories((prev) => {
         if (editingCategory) {
           return prev.map((c) => (c.id === editingCategory.id ? { ...c, name: categoryName } : c));
@@ -97,7 +95,7 @@ export default function CategoryList() {
       try {
         await catalogService.deleteCategory(id);
         fetchCategories();
-      } catch (err) {
+      } catch (_err) {
         setCategories((prev) => prev.filter((c) => c.id !== id));
       }
     }

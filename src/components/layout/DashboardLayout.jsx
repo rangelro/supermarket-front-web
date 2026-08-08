@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -17,8 +17,9 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { authService } from '../../services/authService';
+import { ordersService } from '../../services/ordersService';
 
-export default function DashboardLayout({ children, activeTab, setActiveTab, activeProductEdit }) {
+export default function DashboardLayout({ children, activeTab, setActiveTab, activeProductEdit, onSelectNotificationItem }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -26,27 +27,45 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
-  useEffect(() => {
-    loadUserProfile();
-
-    const handleLogoutEvent = () => setUser(null);
-    window.addEventListener('auth:logout', handleLogoutEvent);
-    return () => window.removeEventListener('auth:logout', handleLogoutEvent);
-  }, []);
+  const loadNotifications = async () => {
+    try {
+      const reports = await ordersService.getReports();
+      if (reports && Array.isArray(reports.critical_products)) {
+        setNotifications(reports.critical_products);
+      }
+    } catch (_err) {
+      console.error('Erro ao carregar notificações:', _err);
+    }
+  };
 
   const loadUserProfile = async () => {
     if (authService.isAuthenticated()) {
       try {
         const profileData = await authService.getProfile();
         setUser(profileData);
-      } catch (err) {
+      } catch (_err) {
         setUser({ username: 'gerente_loja', first_name: 'Carlos', last_name: 'Eduardo', email: 'carlos@supermercado.com' });
       }
     } else {
       setUser({ username: 'gerente_loja', first_name: 'Carlos', last_name: 'Eduardo', email: 'carlos@supermercado.com' });
     }
   };
+
+  useEffect(() => {
+    loadUserProfile();
+    loadNotifications();
+
+    const interval = setInterval(loadNotifications, 8000);
+
+    const handleLogoutEvent = () => setUser(null);
+    window.addEventListener('auth:logout', handleLogoutEvent);
+    return () => {
+      window.removeEventListener('auth:logout', handleLogoutEvent);
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -58,7 +77,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
       await loadUserProfile();
       setShowLoginModal(false);
       setLoginForm({ username: '', password: '' });
-    } catch (err) {
+    } catch (_err) {
       setLoginError('Usuário ou senha incorretos. Tente novamente.');
     } finally {
       setLoginLoading(false);
@@ -77,6 +96,8 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
     { id: 'product-form', label: activeProductEdit ? 'Editar Produto' : 'Novo Produto', icon: PlusCircle, badge: activeProductEdit ? 'Editando' : null },
     { id: 'categories', label: 'Categorias de Produtos', icon: Tags },
   ];
+
+  const zeroStockCount = notifications.filter(n => (n.current_stock ?? n.stock_quantity ?? 0) === 0).length;
 
   return (
     <div className="h-screen w-screen max-h-screen max-w-vw bg-gray-50 flex flex-col font-sans overflow-hidden">
@@ -124,31 +145,66 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
                 title="Alertas de Estoque"
               >
                 <Bell size={18} />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                {notifications.length > 0 && (
+                  <span className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${zeroStockCount > 0 ? 'bg-red-600 animate-pulse' : 'bg-amber-500'}`}></span>
+                )}
               </button>
 
               {/* Popover de Notificações */}
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 p-3.5 z-50 animate-in fade-in zoom-in duration-150">
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-100 mb-2">
-                    <span className="font-bold text-xs text-gray-800">Alertas da Loja</span>
-                    <span className="text-[11px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">4 itens críticos</span>
+                <div className="absolute right-0 mt-2 w-84 bg-white rounded-2xl shadow-2xl border border-gray-200 p-3.5 z-50 animate-in fade-in zoom-in duration-150">
+                  <div className="flex items-center justify-between pb-2 border-b border-gray-100 mb-2.5">
+                    <span className="font-bold text-xs text-gray-800 flex items-center gap-1.5">
+                      <Bell size={14} className="text-emerald-600" /> Alertas da Loja
+                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${zeroStockCount > 0 ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-amber-100 text-amber-800'}`}>
+                      {notifications.length} {notifications.length === 1 ? 'alerta' : 'alertas'}
+                    </span>
                   </div>
-                  <div className="space-y-2 text-xs">
-                    <div className="p-2 bg-red-50 text-red-800 rounded-lg flex items-start gap-2">
-                      <AlertCircle size={14} className="shrink-0 mt-0.5 text-red-600" />
-                      <div>
-                        <span className="font-semibold block">Leite Integral 1L</span>
-                        <span>Restam apenas 3 unidades no estoque.</span>
+
+                  <div className="space-y-2 text-xs max-h-80 overflow-y-auto pr-1">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-xs">
+                        Nenhum alerta de estoque no momento.
                       </div>
-                    </div>
-                    <div className="p-2 bg-amber-50 text-amber-800 rounded-lg flex items-start gap-2">
-                      <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-                      <div>
-                        <span className="font-semibold block">Arroz Tipo 1 5kg</span>
-                        <span>Atingiu o nível mínimo de reposição.</span>
-                      </div>
-                    </div>
+                    ) : (
+                      notifications.map((item) => {
+                        const stock = item.current_stock ?? item.stock_quantity ?? 0;
+                        const isZero = stock === 0;
+
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setNotificationsOpen(false);
+                              if (onSelectNotificationItem) {
+                                onSelectNotificationItem(item);
+                              }
+                            }}
+                            className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                              isZero
+                                ? 'bg-red-50/90 border-red-200 text-red-900 hover:bg-red-100/90 shadow-2xs'
+                                : 'bg-amber-50/80 border-amber-200 text-amber-900 hover:bg-amber-100/80'
+                            }`}
+                          >
+                            <AlertCircle size={16} className={`shrink-0 mt-0.5 ${isZero ? 'text-red-600' : 'text-amber-600'}`} />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold block text-xs truncate max-w-[170px]">{item.name}</span>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${isZero ? 'bg-red-600 text-white uppercase' : 'bg-amber-200 text-amber-900'}`}>
+                                  {isZero ? 'ESGOTADO' : `${stock} un`}
+                                </span>
+                              </div>
+                              <p className="text-[11px] mt-0.5 opacity-90">
+                                {isZero
+                                  ? 'Produto zerou no estoque! Clique para ver detalhes.'
+                                  : `Nível crítico (mín: ${item.min_stock ?? 5} un). Clique para reposição.`}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}

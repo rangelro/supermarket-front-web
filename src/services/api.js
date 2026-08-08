@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// Base URL for API requests
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
@@ -10,7 +9,6 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor: Attach JWT Token if available
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('sgm_access_token');
@@ -22,7 +20,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle Token Refresh or Logout on 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -38,7 +35,7 @@ api.interceptors.response.use(
           api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
           originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
           return api(originalRequest);
-        } catch (refreshErr) {
+        } catch (_refreshErr) {
           localStorage.removeItem('sgm_access_token');
           localStorage.removeItem('sgm_refresh_token');
           window.dispatchEvent(new CustomEvent('auth:logout'));

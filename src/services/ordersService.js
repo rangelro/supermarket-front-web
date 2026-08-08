@@ -1,24 +1,15 @@
 import api from './api';
 
 export const ordersService = {
-  /**
-   * Buscar relatório/indicadores do Dashboard de Vendas e Estoque
-   * Endpoint desejado: /api/orders/reports/
-   * Caso o backend retorne 404 (endpoint ainda não implementado),
-   * a função simula o retorno com dados estruturados reais de um SGM.
-   */
   async getReports() {
     try {
-      // Tenta realizar a chamada GET ao endpoint DRF de relatórios
       const response = await api.get('/api/orders/reports/');
       return response.data;
-    } catch (err) {
-      // Se o endpoint não estiver implementado no backend (404/500/NetworkError), simula o GET
+    } catch (_err) {
       console.warn(
         'Endpoint /api/orders/reports/ não encontrado no backend DRF. Utilizando dados simulados para o Dashboard.'
       );
       
-      // Simulação da resposta do GET /api/orders/reports/
       return new Promise((resolve) => {
         setTimeout(() => {
           resolve({
@@ -48,42 +39,18 @@ export const ordersService = {
               { name: 'Limpeza', percentage: 15, revenue: 4273.58 },
             ]
           });
-        }, 400); // 400ms latency simulation
+        }, 400);
       });
     }
   },
 
-  /**
-   * Buscar pedidos cadastrados no DRF
-   * Endpoint: /api/orders/
-   */
   async getOrders(params = {}) {
     const response = await api.get('/api/orders/', { params });
-    const data = response.data;
-    if (data && Array.isArray(data.results)) {
-      return data.results;
-    }
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return [];
-  },
-
-  /**
-   * Criar novo pedido (POST payload em snake_case)
-   * Endpoint: /api/orders/
-   */
-  async createOrder(orderData) {
-    const response = await api.post('/api/orders/', orderData);
     return response.data;
   },
 
-  /**
-   * Atualizar status do pedido (PATCH /api/orders/{id}/)
-   * Status válidos: PENDING, PREPARING, IN_DELIVERY, COMPLETED, CANCELED
-   */
-  async updateOrderStatus(orderId, status) {
-    const response = await api.patch(`/api/orders/${orderId}/`, { status });
+  async createOrder(orderData) {
+    const response = await api.post('/api/orders/', orderData);
     return response.data;
   }
 };

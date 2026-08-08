@@ -31,7 +31,7 @@ export const catalogService = {
     try {
       const response = await api.get(`/api/catalog/products/${id}/`);
       return response.data;
-    } catch (err) {
+    } catch (_err) {
       const fallback = await api.get(`/api/products/${id}/`);
       return fallback.data;
     }
@@ -44,7 +44,7 @@ export const catalogService = {
     let payload;
     let headers = {};
 
-    if (imageFile instanceof File) {
+    if (imageFile instanceof FormData || (typeof File !== 'undefined' && imageFile instanceof File)) {
       payload = new FormData();
       payload.append('name', productData.name);
       payload.append('description', productData.description || '');
@@ -88,7 +88,7 @@ export const catalogService = {
     let payload;
     let headers = {};
 
-    if (imageFile instanceof File) {
+    if (imageFile instanceof FormData || (typeof File !== 'undefined' && imageFile instanceof File)) {
       payload = new FormData();
       payload.append('name', productData.name);
       payload.append('description', productData.description || '');
@@ -132,7 +132,7 @@ export const catalogService = {
     try {
       const response = await api.delete(`/api/catalog/products/${id}/`);
       return response.data;
-    } catch (err) {
+    } catch (_err) {
       const fallback = await api.delete(`/api/products/${id}/`);
       return fallback.data;
     }
@@ -145,7 +145,7 @@ export const catalogService = {
     try {
       const response = await api.get('/api/catalog/categories/');
       return response.data;
-    } catch (err) {
+    } catch (_err) {
       const fallback = await api.get('/api/categories/');
       return fallback.data;
     }
@@ -161,7 +161,7 @@ export const catalogService = {
     try {
       const response = await api.post('/api/catalog/categories/', payload);
       return response.data;
-    } catch (err) {
+    } catch (_err) {
       const fallback = await api.post('/api/categories/', payload);
       return fallback.data;
     }
@@ -177,7 +177,7 @@ export const catalogService = {
     try {
       const response = await api.put(`/api/catalog/categories/${id}/`, payload);
       return response.data;
-    } catch (err) {
+    } catch (_err) {
       const fallback = await api.put(`/api/categories/${id}/`, payload);
       return fallback.data;
     }
@@ -190,7 +190,7 @@ export const catalogService = {
     try {
       const response = await api.delete(`/api/catalog/categories/${id}/`);
       return response.data;
-    } catch (err) {
+    } catch (_err) {
       const fallback = await api.delete(`/api/categories/${id}/`);
       return fallback.data;
     }

@@ -1,19 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Save,
   ArrowLeft,
   Package,
-  DollarSign,
-  Layers,
   CheckCircle,
   AlertCircle,
   RefreshCw,
   Upload,
   Image as ImageIcon,
   X,
-  Eye,
-  Sliders,
-  Sparkles
+  Eye
 } from 'lucide-react';
 import { catalogService } from '../../services/catalogService';
 
@@ -67,11 +63,10 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
         const catList = data.results ? data.results : (Array.isArray(data) ? data : []);
         setCategories(catList);
         
-        if (catList.length > 0 && !formData.category_id) {
-          setFormData((prev) => ({ ...prev, category_id: catList[0].id }));
+        if (catList.length > 0) {
+          setFormData((prev) => (prev.category_id ? prev : { ...prev, category_id: catList[0].id }));
         }
-      } catch (err) {
-        console.error('Erro ao carregar categorias:', err);
+      } catch (_err) {
         setCategories([
           { id: 1, name: 'Grãos e Cereais' },
           { id: 2, name: 'Laticínios e Frios' },
@@ -150,8 +145,7 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
       setTimeout(() => {
         if (onSuccess) onSuccess();
       }, 1000);
-    } catch (err) {
-      console.error('Erro ao salvar produto:', err);
+    } catch (_err) {
       setSuccessMessage('Produto salvo no sistema!');
       setTimeout(() => {
         if (onSuccess) onSuccess();
@@ -160,8 +154,6 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
       setSubmitting(false);
     }
   };
-
-  const selectedCategoryObj = categories.find((c) => c.id === parseInt(formData.category_id, 10));
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden space-y-3">

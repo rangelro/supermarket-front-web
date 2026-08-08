@@ -10,8 +10,6 @@ import {
   Filter,
   Eye,
   ChefHat,
-  ChevronRight,
-  AlertCircle,
   User,
   Calendar,
   DollarSign
@@ -28,7 +26,6 @@ export default function OrderManagement() {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   const fetchOrders = async () => {
-    setLoading(true);
     setError('');
     try {
       const data = await ordersService.getOrders();
@@ -44,7 +41,6 @@ export default function OrderManagement() {
 
   useEffect(() => {
     fetchOrders();
-    // Polling a cada 15 segundos para atualizar novos pedidos recebidos do app
     const interval = setInterval(fetchOrders, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -113,8 +109,9 @@ export default function OrderManagement() {
               <ShoppingBag className="text-emerald-600" size={22} /> Gestão de Pedidos da Loja
             </h1>
             <p className="text-xs text-gray-500">
-              Acompanhe pedidos enviados pelo app mobile e atualize o status para notificar os clientes.
+              Acompanhe, altere status e visualize o detalhamento dos pedidos recebidos
             </p>
+            {error && <p className="text-xs text-red-600 font-medium mt-1">{error}</p>}
           </div>
 
           <button

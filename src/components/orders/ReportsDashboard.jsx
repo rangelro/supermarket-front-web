@@ -19,10 +19,6 @@ export default function ReportsDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
   const fetchReports = async () => {
     setLoading(true);
     try {
@@ -35,6 +31,10 @@ export default function ReportsDashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden space-y-4">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Search,
   Filter,
@@ -9,7 +9,6 @@ import {
   ChevronRight,
   RefreshCw,
   Package,
-  Tag,
   Grid,
   List as ListIcon,
   Image as ImageIcon
@@ -33,32 +32,7 @@ export default function ProductList({ onEditProduct, onCreateNewProduct }) {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    async function loadCategories() {
-      try {
-        const catData = await catalogService.getCategories();
-        const catList = catData.results ? catData.results : (Array.isArray(catData) ? catData : []);
-        setCategories(catList);
-      } catch (err) {
-        console.error('Erro ao carregar categorias:', err);
-      }
-    }
-    loadCategories();
-  }, []);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [page, debouncedSearch, selectedCategory]);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
       const data = await catalogService.getProducts({
@@ -81,8 +55,7 @@ export default function ProductList({ onEditProduct, onCreateNewProduct }) {
         setProducts([]);
         setTotalCount(0);
       }
-    } catch (err) {
-      console.error('Erro ao carregar produtos:', err);
+    } catch (_err) {
       setProducts([
         { 
           id: 1, 
@@ -133,14 +106,39 @@ export default function ProductList({ onEditProduct, onCreateNewProduct }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, debouncedSearch, selectedCategory]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const catData = await catalogService.getCategories();
+        const catList = catData.results ? catData.results : (Array.isArray(catData) ? catData : []);
+        setCategories(catList);
+      } catch (_err) {
+        // Fallback cat list handled gracefully
+      }
+    }
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleDeleteProduct = async (id, name) => {
     if (window.confirm(`Tem certeza que deseja excluir o produto "${name}" do estoque?`)) {
       try {
         await catalogService.deleteProduct(id);
         fetchProducts();
-      } catch (err) {
+      } catch (_err) {
         alert('Não foi possível excluir o produto no momento.');
       }
     }
