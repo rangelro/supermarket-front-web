@@ -4,6 +4,7 @@ import ProductList from './components/catalog/ProductList';
 import ProductForm from './components/catalog/ProductForm';
 import CategoryList from './components/catalog/CategoryList';
 import ReportsDashboard from './components/orders/ReportsDashboard';
+import OrderManagement from './components/orders/OrderManagement';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('reports');
@@ -41,6 +42,8 @@ export default function App() {
       activeProductEdit={activeProductEdit}
     >
       {activeTab === 'reports' && <ReportsDashboard />}
+
+      {activeTab === 'orders' && <OrderManagement />}
 
       {activeTab === 'products' && (
         <ProductList
