@@ -42,6 +42,13 @@ api.interceptors.response.use(
         }
       }
     }
+
+    if (error.response?.status === 403) {
+      window.dispatchEvent(new CustomEvent('auth:forbidden', {
+        detail: error.response?.data?.detail
+      }));
+    }
+
     return Promise.reject(error);
   }
 );

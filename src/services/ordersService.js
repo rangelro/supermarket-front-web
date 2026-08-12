@@ -1,9 +1,10 @@
 import api from './api';
 
 export const ordersService = {
-  async getReports() {
+  async getReports(params = {}) {
+    const queryString = params.city ? `?city=${params.city}` : '';
     try {
-      const response = await api.get('/api/orders/reports/');
+      const response = await api.get(`/api/orders/reports/${queryString}`);
       return response.data;
     } catch (_err) {
       return new Promise((resolve) => {
@@ -23,10 +24,10 @@ export const ordersService = {
               { date: 'Sábado', total: 5099.00, count: 32 },
             ],
             critical_products: [
-              { id: 101, name: 'Leite Integral 1L', category: 'Laticínios', current_stock: 3, min_stock: 15, unit: 'un' },
-              { id: 102, name: 'Arroz Tipo 1 5kg', category: 'Grãos', current_stock: 2, min_stock: 10, unit: 'un' },
-              { id: 103, name: 'Café Torrado 500g', category: 'Mercearia', current_stock: 4, min_stock: 12, unit: 'un' },
-              { id: 104, name: 'Detergente Neutro 500ml', category: 'Limpeza', current_stock: 1, min_stock: 20, unit: 'un' },
+              { id: 101, name: 'Leite Integral 1L', category: 'Laticínios', current_stock: 3, min_stock: 15, unit: 'un', city: 'Natal/RN' },
+              { id: 102, name: 'Arroz Tipo 1 5kg', category: 'Grãos', current_stock: 2, min_stock: 10, unit: 'un', city: 'Natal/RN' },
+              { id: 103, name: 'Café Torrado 500g', category: 'Mercearia', current_stock: 4, min_stock: 12, unit: 'un', city: 'Parnamirim/RN' },
+              { id: 104, name: 'Detergente Neutro 500ml', category: 'Limpeza', current_stock: 1, min_stock: 20, unit: 'un', city: 'Parnamirim/RN' },
             ],
             top_selling_categories: [
               { name: 'Mercearia', percentage: 42, revenue: 11966.01 },
@@ -52,6 +53,7 @@ export const ordersService = {
           user: 'Mariana Oliveira',
           status: 'PENDING',
           total_amount: 142.50,
+          city: { id: 1, name: 'Natal', state: 'RN' },
           created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
           items: [
             { id: 1, product_name: 'Arroz Parboilizado 5kg', quantity: 2, unit_price: 28.90, subtotal: 57.80 },
@@ -64,6 +66,7 @@ export const ordersService = {
           user: 'João Pedro Santos',
           status: 'PREPARING',
           total_amount: 89.90,
+          city: { id: 2, name: 'Parnamirim', state: 'RN' },
           created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
           items: [
             { id: 4, product_name: 'Café Torrado 500g', quantity: 2, unit_price: 18.90, subtotal: 37.80 },

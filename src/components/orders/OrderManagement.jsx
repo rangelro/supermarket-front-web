@@ -12,16 +12,19 @@ import {
   ChefHat,
   User,
   Calendar,
-  DollarSign
+  DollarSign,
+  MapPin
 } from 'lucide-react';
 import { ordersService } from '../../services/ordersService';
+import CityFilterSelect from '../common/CityFilterSelect';
 
-export default function OrderManagement() {
+export default function OrderManagement({ user }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [selectedCity, setSelectedCity] = useState('');
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -78,7 +81,8 @@ export default function OrderManagement() {
       searchQuery === '' ||
       order.id.toString().includes(searchQuery) ||
       (order.user && order.user.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesStatus && matchesSearch;
+    const matchesCity = !selectedCity || order.city?.id === Number(selectedCity);
+    return matchesStatus && matchesSearch && matchesCity;
   });
 
   const countByStatus = (status) => orders.filter((o) => o.status === status).length;
@@ -215,6 +219,7 @@ export default function OrderManagement() {
             <option value="COMPLETED">Entregues</option>
             <option value="CANCELED">Cancelados</option>
           </select>
+          <CityFilterSelect user={user} value={selectedCity} onChange={setSelectedCity} />
         </div>
       </div>
 
@@ -262,6 +267,11 @@ export default function OrderManagement() {
                       <span className="flex items-center gap-1">
                         <Calendar size={13} className="text-gray-400" /> {formatDate(order.created_at)}
                       </span>
+                      {order.city && (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={13} className="text-gray-400" /> {order.city.name}/{order.city.state}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1 font-semibold text-gray-800">
                         <DollarSign size={13} className="text-emerald-600" /> {formatMoney(order.total_amount)}
                       </span>
@@ -325,7 +335,10 @@ export default function OrderManagement() {
             <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-3">
               <div>
                 <h3 className="text-base font-extrabold text-gray-900">Detalhes do Pedido #{selectedOrder.id}</h3>
-                <p className="text-xs text-gray-500">Cliente: {selectedOrder.user} • {formatDate(selectedOrder.created_at)}</p>
+                <p className="text-xs text-gray-500">
+                  Cliente: {selectedOrder.user} • {formatDate(selectedOrder.created_at)}
+                  {selectedOrder.city && ` • ${selectedOrder.city.name}/${selectedOrder.city.state}`}
+                </p>
               </div>
               <button
                 onClick={() => setSelectedOrder(null)}

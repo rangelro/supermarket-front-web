@@ -13,16 +13,18 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { ordersService } from '../../services/ordersService';
+import CityFilterSelect from '../common/CityFilterSelect';
 
-export default function ReportsDashboard() {
+export default function ReportsDashboard({ user }) {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [selectedCity, setSelectedCity] = useState('');
 
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const data = await ordersService.getReports();
+      const data = await ordersService.getReports({ city: selectedCity });
       setReportData(data);
       setLastUpdated(new Date());
     } catch (err) {
@@ -34,7 +36,8 @@ export default function ReportsDashboard() {
 
   useEffect(() => {
     fetchReports();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCity]);
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden space-y-4">
@@ -50,6 +53,7 @@ export default function ReportsDashboard() {
         </div>
 
         <div className="flex items-center gap-2">
+          <CityFilterSelect user={user} value={selectedCity} onChange={setSelectedCity} />
           <span className="text-xs text-gray-400 hidden sm:inline-block">
             {lastUpdated.toLocaleTimeString('pt-BR')}
           </span>
@@ -221,6 +225,7 @@ export default function ReportsDashboard() {
                     <th className="py-2 px-3">Setor</th>
                     <th className="py-2 px-3">Estoque Atual</th>
                     <th className="py-2 px-3">Mínimo Recomendado</th>
+                    <th className="py-2 px-3">Cidade</th>
                     <th className="py-2 px-3 text-right">Situação</th>
                   </tr>
                 </thead>
@@ -238,6 +243,7 @@ export default function ReportsDashboard() {
                       <td className="py-2 px-3 text-gray-600 font-semibold">
                         {prod.min_stock} {prod.unit}
                       </td>
+                      <td className="py-2 px-3 text-gray-500">{prod.city}</td>
                       <td className="py-2 px-3 text-right">
                         <span className="text-[10px] bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full font-bold inline-block">
                           Abaixo do Mínimo

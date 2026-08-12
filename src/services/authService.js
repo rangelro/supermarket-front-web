@@ -1,5 +1,13 @@
 import api from './api';
 
+/**
+ * Papéis com acesso ao painel: gerente (acesso total) e supervisor de
+ * cidade (mesmo acesso, exceto Cidades Atendidas e Supervisores).
+ */
+export function isStaffRole(role) {
+  return role === 'MANAGER' || role === 'CITY_SUPERVISOR';
+}
+
 export const authService = {
   /**
    * Autenticar usuário no backend DRF usando JWT SimpleJWT
@@ -7,13 +15,24 @@ export const authService = {
    */
   async login(username, password) {
     const response = await api.post('/api/auth/token/', { username, password });
-    if (response.data.access) {
-      localStorage.setItem('sgm_access_token', response.data.access);
-      if (response.data.refresh) {
-        localStorage.setItem('sgm_refresh_token', response.data.refresh);
-      }
+    if (!response.data.access) {
+      throw new Error('Credenciais inválidas');
     }
-    return response.data;
+
+    localStorage.setItem('sgm_access_token', response.data.access);
+    if (response.data.refresh) {
+      localStorage.setItem('sgm_refresh_token', response.data.refresh);
+    }
+
+    // Painel é exclusivo de gerente/supervisor de cidade: valida antes de liberar a sessão
+    const profile = await this.getProfile();
+    if (!isStaffRole(profile.role)) {
+      this.logout();
+      const err = new Error('Esta área é exclusiva para gerentes e supervisores de cidade.');
+      err.code = 'NOT_MANAGER';
+      throw err;
+    }
+    return { ...response.data, profile };
   },
 
   /**

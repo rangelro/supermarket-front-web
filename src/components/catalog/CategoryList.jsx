@@ -11,10 +11,12 @@ import {
   Package
 } from 'lucide-react';
 import { catalogService } from '../../services/catalogService';
+import CityFilterSelect from '../common/CityFilterSelect';
 
-export default function CategoryList() {
+export default function CategoryList({ user }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCity, setSelectedCity] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -25,7 +27,7 @@ export default function CategoryList() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const data = await catalogService.getCategories();
+      const data = await catalogService.getCategories({ city: selectedCity });
       const catList = data.results ? data.results : (Array.isArray(data) ? data : []);
       setCategories(catList);
     } catch (_err) {
@@ -44,7 +46,8 @@ export default function CategoryList() {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCity]);
 
   const handleOpenModal = (category = null) => {
     setModalError(null);
@@ -114,13 +117,16 @@ export default function CategoryList() {
           </p>
         </div>
 
-        <button
-          onClick={() => handleOpenModal(null)}
-          className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-xl shadow-xs text-xs transition-colors cursor-pointer"
-        >
-          <Plus size={16} />
-          <span>Nova Categoria</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <CityFilterSelect user={user} value={selectedCity} onChange={setSelectedCity} />
+          <button
+            onClick={() => handleOpenModal(null)}
+            className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-xl shadow-xs text-xs transition-colors cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Nova Categoria</span>
+          </button>
+        </div>
       </div>
 
       {/* Grid com Scroll Interno */}

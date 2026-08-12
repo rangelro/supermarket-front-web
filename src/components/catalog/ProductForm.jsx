@@ -12,14 +12,18 @@ import {
   Eye
 } from 'lucide-react';
 import { catalogService } from '../../services/catalogService';
+import { citiesService } from '../../services/citiesService';
 
-export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
+export default function ProductForm({ user, productToEdit, onCancel, onSuccess }) {
+  const isEditMode = !!(productToEdit && productToEdit.id);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     unit: 'un',
     category_id: '',
+    city_id: '',
     stock_quantity: 0,
     min_stock: 5,
     is_active: true,
@@ -30,22 +34,22 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
 
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [activeCities, setActiveCities] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
     if (productToEdit) {
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         name: productToEdit.name || '',
         description: productToEdit.description || '',
         price: productToEdit.price || '',
         unit: productToEdit.unit || 'un',
         category_id: productToEdit.category?.id || productToEdit.category_id || '',
-        stock_quantity: productToEdit.stock_quantity ?? 0,
-        min_stock: productToEdit.min_stock ?? 5,
         is_active: productToEdit.is_active ?? true,
-      });
+      }));
 
       if (productToEdit.image_url) {
         setImagePreviewUrl(productToEdit.image_url);
@@ -54,6 +58,17 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
       }
     }
   }, [productToEdit]);
+
+  // Cidade do estoque inicial só faz sentido na criação — supervisor herda a
+  // própria cidade automaticamente, gerente escolhe.
+  useEffect(() => {
+    if (isEditMode) return;
+    if (user?.role === 'MANAGER') {
+      citiesService.getCities()
+        .then((data) => setActiveCities((data || []).filter((c) => c.is_active)))
+        .catch(() => setActiveCities([]));
+    }
+  }, [isEditMode, user?.role]);
 
   useEffect(() => {
     async function loadCategories() {
@@ -132,9 +147,14 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
       setSubmitting(false);
       return;
     }
+    if (!isEditMode && user?.role === 'MANAGER' && !formData.city_id) {
+      setErrorMessage('Selecione a cidade do estoque inicial.');
+      setSubmitting(false);
+      return;
+    }
 
     try {
-      if (productToEdit && productToEdit.id) {
+      if (isEditMode) {
         await catalogService.updateProduct(productToEdit.id, formData, imageFile);
         setSuccessMessage('Produto alterado com sucesso!');
       } else {
@@ -327,53 +347,91 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
               </div>
             </div>
 
-            {/* Estoque */}
-            <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-4 grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
-                  Unidade
-                </label>
-                <select
-                  name="unit"
-                  value={formData.unit}
-                  onChange={handleChange}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-xl text-xs bg-white"
-                >
-                  <option value="un">un</option>
-                  <option value="kg">kg</option>
-                  <option value="l">l</option>
-                  <option value="cx">cx</option>
-                  <option value="pct">pct</option>
-                </select>
+            {/* Unidade + Estoque Inicial (só na criação — depois disso, estoque se ajusta pela tela "Estoque de Produtos") */}
+            <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-4 space-y-3">
+              <div className={`grid gap-3 ${isEditMode ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
+                    Unidade
+                  </label>
+                  <select
+                    name="unit"
+                    value={formData.unit}
+                    onChange={handleChange}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-xl text-xs bg-white"
+                  >
+                    <option value="un">un</option>
+                    <option value="kg">kg</option>
+                    <option value="l">l</option>
+                    <option value="cx">cx</option>
+                    <option value="pct">pct</option>
+                  </select>
+                </div>
+
+                {!isEditMode && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
+                        Estoque Inicial
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        name="stock_quantity"
+                        value={formData.stock_quantity}
+                        onChange={handleChange}
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-xl text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
+                        Mínimo
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        name="min_stock"
+                        value={formData.min_stock}
+                        onChange={handleChange}
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-xl text-xs"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
-                  Qtd Estoque
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  name="stock_quantity"
-                  value={formData.stock_quantity}
-                  onChange={handleChange}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-xl text-xs"
-                />
-              </div>
+              {!isEditMode && (
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
+                    Cidade do Estoque Inicial
+                  </label>
+                  {user?.role === 'CITY_SUPERVISOR' ? (
+                    <p className="text-xs bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-600">
+                      {user.city ? `${user.city.name}/${user.city.state}` : 'Sem cidade vinculada'}
+                    </p>
+                  ) : (
+                    <select
+                      name="city_id"
+                      required
+                      value={formData.city_id}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white"
+                    >
+                      <option value="">Selecione a cidade...</option>
+                      {activeCities.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}/{c.state}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
 
-              <div>
-                <label className="block text-[10px] font-bold text-gray-700 uppercase mb-1">
-                  Mínimo
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  name="min_stock"
-                  value={formData.min_stock}
-                  onChange={handleChange}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-xl text-xs"
-                />
-              </div>
+              {isEditMode && (
+                <p className="text-[11px] text-gray-500">
+                  Estoque não se altera por aqui — use a tela "Estoque de Produtos" pra ajustar quantidade por cidade.
+                </p>
+              )}
             </div>
 
             {/* Ações */}
@@ -425,9 +483,11 @@ export default function ProductForm({ productToEdit, onCancel, onSuccess }) {
                   <span className="text-sm font-bold text-emerald-700">
                     R$ {parseFloat(formData.price || 0).toFixed(2)}
                   </span>
-                  <span className="text-[10px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
-                    {formData.stock_quantity || 0} {formData.unit}
-                  </span>
+                  {!isEditMode && (
+                    <span className="text-[10px] font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {formData.stock_quantity || 0} {formData.unit}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

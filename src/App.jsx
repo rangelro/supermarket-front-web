@@ -5,10 +5,23 @@ import ProductForm from './components/catalog/ProductForm';
 import CategoryList from './components/catalog/CategoryList';
 import ReportsDashboard from './components/orders/ReportsDashboard';
 import OrderManagement from './components/orders/OrderManagement';
+import CityList from './components/cities/CityList';
+import SupervisorList from './components/supervisors/SupervisorList';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('reports');
   const [activeProductEdit, setActiveProductEdit] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const MANAGER_ONLY_TABS = ['cities', 'supervisors'];
+
+  const handleUserChange = (newUser) => {
+    setUser(newUser);
+    // Evita ficar preso numa aba exclusiva do gerente após logout/troca de usuário
+    if (newUser?.role !== 'MANAGER' && MANAGER_ONLY_TABS.includes(activeTab)) {
+      setActiveTab('reports');
+    }
+  };
 
   const handleCreateNewProduct = () => {
     setActiveProductEdit(null);
@@ -40,13 +53,15 @@ export default function App() {
         setActiveTab(tab);
       }}
       activeProductEdit={activeProductEdit}
+      onUserChange={handleUserChange}
     >
-      {activeTab === 'reports' && <ReportsDashboard />}
+      {activeTab === 'reports' && <ReportsDashboard user={user} />}
 
-      {activeTab === 'orders' && <OrderManagement />}
+      {activeTab === 'orders' && <OrderManagement user={user} />}
 
       {activeTab === 'products' && (
         <ProductList
+          user={user}
           onEditProduct={handleEditProduct}
           onCreateNewProduct={handleCreateNewProduct}
         />
@@ -54,13 +69,18 @@ export default function App() {
 
       {activeTab === 'product-form' && (
         <ProductForm
+          user={user}
           productToEdit={activeProductEdit}
           onCancel={handleCancelForm}
           onSuccess={handleFormSuccess}
         />
       )}
 
-      {activeTab === 'categories' && <CategoryList />}
+      {activeTab === 'categories' && <CategoryList user={user} />}
+
+      {activeTab === 'cities' && <CityList />}
+
+      {activeTab === 'supervisors' && <SupervisorList />}
     </DashboardLayout>
   );
 }

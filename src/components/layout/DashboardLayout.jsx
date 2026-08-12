@@ -5,7 +5,6 @@ import {
   PlusCircle,
   Tags,
   LogOut,
-  User as UserIcon,
   Bell,
   Search,
   Store,
@@ -14,20 +13,29 @@ import {
   Lock,
   CheckCircle,
   AlertCircle,
-  ShoppingBag
+  ShoppingBag,
+  MapPin,
+  Users
 } from 'lucide-react';
-import { authService } from '../../services/authService';
+import { authService, isStaffRole } from '../../services/authService';
 import { ordersService } from '../../services/ordersService';
 
-export default function DashboardLayout({ children, activeTab, setActiveTab, activeProductEdit, onSelectNotificationItem }) {
+export default function DashboardLayout({ children, activeTab, setActiveTab, activeProductEdit, onSelectNotificationItem, onUserChange }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+
+  // Espelha o usuário logado pro App.jsx, que repassa pras telas que
+  // precisam saber papel/cidade (filtros, navegação condicional etc).
+  const updateUser = (value) => {
+    setUser(value);
+    onUserChange?.(value);
+  };
 
   const loadNotifications = async () => {
     try {
@@ -41,31 +49,47 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
   };
 
   const loadUserProfile = async () => {
-    if (authService.isAuthenticated()) {
-      try {
-        const profileData = await authService.getProfile();
-        setUser(profileData);
-      } catch (_err) {
-        setUser({ username: 'gerente_loja', first_name: 'Carlos', last_name: 'Eduardo', email: 'carlos@supermercado.com' });
+    if (!authService.isAuthenticated()) {
+      updateUser(null);
+      setChecking(false);
+      return;
+    }
+    try {
+      const profileData = await authService.getProfile();
+      if (!isStaffRole(profileData.role)) {
+        authService.logout();
+        updateUser(null);
+      } else {
+        updateUser(profileData);
       }
-    } else {
-      setUser({ username: 'gerente_loja', first_name: 'Carlos', last_name: 'Eduardo', email: 'carlos@supermercado.com' });
+    } catch (_err) {
+      authService.logout();
+      updateUser(null);
+    } finally {
+      setChecking(false);
     }
   };
 
   useEffect(() => {
     loadUserProfile();
-    loadNotifications();
 
-    const interval = setInterval(loadNotifications, 8000);
-
-    const handleLogoutEvent = () => setUser(null);
+    const handleLogoutEvent = () => updateUser(null);
     window.addEventListener('auth:logout', handleLogoutEvent);
     return () => {
       window.removeEventListener('auth:logout', handleLogoutEvent);
-      clearInterval(interval);
     };
   }, []);
+
+  // Alertas de estoque só fazem sentido (e só são acessíveis) para o gerente autenticado
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 8000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -73,12 +97,15 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
     setLoginLoading(true);
 
     try {
-      await authService.login(loginForm.username, loginForm.password);
-      await loadUserProfile();
-      setShowLoginModal(false);
+      const { profile } = await authService.login(loginForm.username, loginForm.password);
+      updateUser(profile);
       setLoginForm({ username: '', password: '' });
-    } catch (_err) {
-      setLoginError('Usuário ou senha incorretos. Tente novamente.');
+    } catch (err) {
+      setLoginError(
+        err.code === 'NOT_MANAGER'
+          ? err.message
+          : 'Usuário ou senha incorretos. Tente novamente.'
+      );
     } finally {
       setLoginLoading(false);
     }
@@ -86,8 +113,10 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
 
   const handleLogout = () => {
     authService.logout();
-    setUser(null);
+    updateUser(null);
   };
+
+  const isManager = user?.role === 'MANAGER';
 
   const navItems = [
     { id: 'reports', label: 'Visão Geral & Vendas', icon: LayoutDashboard },
@@ -95,9 +124,86 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
     { id: 'products', label: 'Estoque de Produtos', icon: Package },
     { id: 'product-form', label: activeProductEdit ? 'Editar Produto' : 'Novo Produto', icon: PlusCircle, badge: activeProductEdit ? 'Editando' : null },
     { id: 'categories', label: 'Categorias de Produtos', icon: Tags },
+    // Cidades Atendidas e Supervisores são exclusivos do gerente
+    ...(isManager ? [{ id: 'cities', label: 'Cidades Atendidas', icon: MapPin }] : []),
+    ...(isManager ? [{ id: 'supervisors', label: 'Supervisores de Cidade', icon: Users }] : []),
   ];
 
   const zeroStockCount = notifications.filter(n => (n.current_stock ?? n.stock_quantity ?? 0) === 0).length;
+
+  if (checking) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
+        <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <div className="animate-spin h-4 w-4 border-2 border-emerald-500 border-t-transparent rounded-full"></div>
+          Carregando...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-md w-full p-6">
+          <div className="flex flex-col items-center text-center mb-4">
+            <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-sm mb-3">
+              <Store size={26} className="stroke-[2.5]" />
+            </div>
+            <h1 className="text-lg font-bold text-gray-900">SGM Supermercados</h1>
+            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
+              <Lock size={12} className="text-emerald-600" /> Área exclusiva para gerentes e supervisores de cidade
+            </p>
+          </div>
+
+          {loginError && (
+            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-xs p-2.5 rounded-xl flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{loginError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleLoginSubmit} className="space-y-3">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
+                Usuário
+              </label>
+              <input
+                type="text"
+                required
+                value={loginForm.username}
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                placeholder="Seu usuário de acesso"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
+                Senha
+              </label>
+              <input
+                type="password"
+                required
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                placeholder="••••••••"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium shadow-sm transition-colors"
+            >
+              {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen max-h-screen max-w-vw bg-gray-50 flex flex-col font-sans overflow-hidden">
@@ -139,7 +245,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
           {/* Notificações e Perfil do Usuário */}
           <div className="flex items-center gap-3">
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors relative"
                 title="Alertas de Estoque"
@@ -212,34 +318,26 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
 
             <div className="h-5 w-px bg-gray-200"></div>
 
-            {user ? (
-              <div className="flex items-center gap-2 pl-1">
-                <div className="hidden sm:block text-right">
-                  <p className="text-xs font-semibold text-gray-800 leading-tight">
-                    {user.first_name ? `${user.first_name} ${user.last_name || ''}` : user.username}
-                  </p>
-                  <p className="text-[10px] text-gray-500 font-medium">Gerente de Loja</p>
-                </div>
-                <div className="h-8 w-8 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center font-bold text-xs border border-emerald-300 shadow-xs">
-                  {user.first_name ? user.first_name[0].toUpperCase() : user.username[0].toUpperCase()}
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Sair do Sistema"
-                >
-                  <LogOut size={16} />
-                </button>
+            <div className="flex items-center gap-2 pl-1">
+              <div className="hidden sm:block text-right">
+                <p className="text-xs font-semibold text-gray-800 leading-tight">
+                  {user.first_name ? `${user.first_name} ${user.last_name || ''}` : user.username}
+                </p>
+                <p className="text-[10px] text-gray-500 font-medium">
+                  {isManager ? 'Gerente de Loja' : `Supervisor${user.city ? ` · ${user.city.name}/${user.city.state}` : ''}`}
+                </p>
               </div>
-            ) : (
+              <div className="h-8 w-8 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center font-bold text-xs border border-emerald-300 shadow-xs">
+                {user.first_name ? user.first_name[0].toUpperCase() : user.username[0].toUpperCase()}
+              </div>
               <button
-                onClick={() => setShowLoginModal(true)}
-                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                onClick={handleLogout}
+                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Sair do Sistema"
               >
-                <UserIcon size={14} />
-                <span>Acessar Conta</span>
+                <LogOut size={16} />
               </button>
-            )}
+            </div>
           </div>
         </div>
       </header>
@@ -307,83 +405,6 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, act
           </div>
         </main>
       </div>
-
-      {/* Modal de Login */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-md w-full p-5">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Lock className="text-emerald-600" size={18} /> Entrar no Sistema SGM
-              </h3>
-              <button
-                onClick={() => setShowLoginModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-md"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-600 mb-3">
-              Informe seu usuário e senha cadastrados para acessar o gerenciamento do supermercado.
-            </p>
-
-            {loginError && (
-              <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-xs p-2.5 rounded-xl flex items-center gap-2">
-                <AlertCircle size={15} />
-                <span>{loginError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleLoginSubmit} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
-                  Usuário
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={loginForm.username}
-                  onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                  placeholder="Seu usuário de acesso"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
-                  Senha
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowLoginModal(false)}
-                  className="px-3 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-xl font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loginLoading}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium shadow-sm"
-                >
-                  {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

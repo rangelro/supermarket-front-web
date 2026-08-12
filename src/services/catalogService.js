@@ -9,6 +9,7 @@ export const catalogService = {
     if (params.page) queryParams.append('page', params.page);
     if (params.search) queryParams.append('search', params.search);
     if (params.category) queryParams.append('category', params.category);
+    if (params.city) queryParams.append('city', params.city);
 
     const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
     
@@ -51,6 +52,7 @@ export const catalogService = {
       payload.append('price', productData.price);
       payload.append('unit', productData.unit || 'un');
       payload.append('category_id', productData.category_id);
+      if (productData.city_id) payload.append('city_id', productData.city_id);
       payload.append('stock_quantity', productData.stock_quantity || 0);
       payload.append('min_stock', productData.min_stock || 5);
       payload.append('is_active', productData.is_active ?? true);
@@ -63,6 +65,7 @@ export const catalogService = {
         price: parseFloat(productData.price),
         unit: productData.unit || 'un',
         category_id: parseInt(productData.category_id, 10),
+        city_id: productData.city_id ? parseInt(productData.city_id, 10) : undefined,
         stock_quantity: parseInt(productData.stock_quantity || 0, 10),
         min_stock: parseInt(productData.min_stock || 5, 10),
         is_active: productData.is_active ?? true,
@@ -82,7 +85,9 @@ export const catalogService = {
   },
 
   /**
-   * Atualizar produto existente (suporta FormData ou JSON)
+   * Atualizar produto existente (suporta FormData ou JSON).
+   * Estoque não faz mais parte de Product (é por cidade, via productStockService) —
+   * dados gerais só.
    */
   async updateProduct(id, productData, imageFile = null) {
     let payload;
@@ -95,8 +100,6 @@ export const catalogService = {
       payload.append('price', productData.price);
       payload.append('unit', productData.unit || 'un');
       payload.append('category_id', productData.category_id);
-      payload.append('stock_quantity', productData.stock_quantity || 0);
-      payload.append('min_stock', productData.min_stock || 5);
       payload.append('is_active', productData.is_active ?? true);
       payload.append('image', imageFile);
       headers['Content-Type'] = 'multipart/form-data';
@@ -107,8 +110,6 @@ export const catalogService = {
         price: parseFloat(productData.price),
         unit: productData.unit || 'un',
         category_id: parseInt(productData.category_id, 10),
-        stock_quantity: parseInt(productData.stock_quantity || 0, 10),
-        min_stock: parseInt(productData.min_stock || 5, 10),
         is_active: productData.is_active ?? true,
       };
     }
@@ -139,14 +140,16 @@ export const catalogService = {
   },
 
   /**
-   * Buscar categorias
+   * Buscar categorias, opcionalmente filtradas por cidade (só mostra
+   * categorias com produto ativo e em estoque naquela cidade)
    */
-  async getCategories() {
+  async getCategories(params = {}) {
+    const queryString = params.city ? `?city=${params.city}` : '';
     try {
-      const response = await api.get('/api/catalog/categories/');
+      const response = await api.get(`/api/catalog/categories/${queryString}`);
       return response.data;
     } catch (_err) {
-      const fallback = await api.get('/api/categories/');
+      const fallback = await api.get(`/api/categories/${queryString}`);
       return fallback.data;
     }
   },
